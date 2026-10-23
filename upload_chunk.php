@@ -16,7 +16,7 @@ $ext   = strtolower((string)($_GET['ext'] ?? ''));
 $name  = (string)($_GET['name'] ?? 'video');
 
 if (strlen($token)!==32 || $idx<0 || $total<1 || $idx>=$total) out(400,['error'=>'Bad upload request.']);
-if (!in_array($ext, ['mp4','webm'], true)) out(400,['error'=>'Use an MP4 or WEBM video.']);
+if (!in_array($ext, ['mp4','webm','mov'], true)) out(400,['error'=>'Use an MP4, MOV or WEBM video.']);
 if ($size<1 || $size>VIDEO_MAX_BYTES) out(400,['error'=>'Video must be under '.VIDEO_MAX_MB.' MB.']);
 
 $dir = __DIR__.'/assets/videos'; if (!is_dir($dir)) @mkdir($dir,0755,true);

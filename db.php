@@ -47,7 +47,7 @@ function img($dir,$file,$alt,$cls=''){
 }
 
 // Turns a stored video value into something the page can play.
-// Accepts a YouTube / Vimeo link, a direct .mp4/.webm link, or a file name inside assets/videos/.
+// Accepts a YouTube / Vimeo link, a direct .mp4/.mov/.webm link, or a file name inside assets/videos/.
 function video_info($v){
   $v=trim((string)$v); if($v==='') return null;
   if (preg_match('~^https?://~i',$v)) {
@@ -55,7 +55,7 @@ function video_info($v){
       return ['kind'=>'iframe','src'=>'https://www.youtube-nocookie.com/embed/'.$m[1]];
     if (preg_match('~vimeo\.com/(?:video/)?(\d+)~i',$v,$m))
       return ['kind'=>'iframe','src'=>'https://player.vimeo.com/video/'.$m[1]];
-    if (preg_match('~\.(mp4|webm)(\?.*)?$~i',$v)) return ['kind'=>'file','src'=>$v];
+    if (preg_match('~\.(mp4|webm|mov)(\?.*)?$~i',$v)) return ['kind'=>'file','src'=>$v];
     return null;
   }
   return ['kind'=>'file','src'=>'assets/videos/'.rawurlencode($v)];

@@ -10,6 +10,16 @@ $SITE = [
   'area'    => 'Bandar Seri Begawan, Brunei',
   'admin_password' => 'heartb0uNd',
 ];
+// ===== HOME PAGE PHOTO CAROUSEL =====
+// Put the photos in assets/home/ and list the file names here, in the order you want them shown.
+// Add or remove lines to change the photos. They switch automatically every few seconds.
+$HOME_PHOTOS = [
+  'home1.jpg',
+  'home2.jpg',
+  'home3.jpg',
+];
+$HOME_PHOTO_SECONDS = 4; // how long each photo stays before switching
+
 // photo files go in assets/members/ and assets/gallery/
 $MEMBERS = [
   ['name'=>'Kem', 'role'=>'Choreographer/dancer', 'photo'=>'kem.jpg', 'bio'=>'Leader of Heartbound.'],

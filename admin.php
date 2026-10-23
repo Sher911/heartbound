@@ -57,11 +57,11 @@ if (is_admin() && isset($_POST['act'])) {
       // Video: a new upload wins, then a pasted link, otherwise keep what was there (or remove it)
       $vid=$f('video');
       if (!empty($_POST['video_remove'])) $vid='';
-      $vf=save_file('video_file',$title,'videos',['mp4','webm'],VIDEO_MAX_BYTES,'video');
-      if ($vf===false) $errs[]='Video file not saved: use MP4 or WEBM under '.VIDEO_MAX_MB.' MB.';
+      $vf=save_file('video_file',$title,'videos',['mp4','webm','mov'],VIDEO_MAX_BYTES,'video');
+      if ($vf===false) $errs[]='Video file not saved: use MP4, MOV or WEBM under '.VIDEO_MAX_MB.' MB.';
       // Big videos are uploaded in pieces by upload_chunk.php first; the form just sends the saved file name
       $vu=basename((string)($_POST['video_uploaded']??''));
-      if (!$vf && $vu!=='' && preg_match('/^[a-z0-9-]+\.(mp4|webm)$/',$vu) && is_file(__DIR__.'/assets/videos/'.$vu)) $vf=$vu;
+      if (!$vf && $vu!=='' && preg_match('/^[a-z0-9-]+\.(mp4|webm|mov)$/',$vu) && is_file(__DIR__.'/assets/videos/'.$vu)) $vf=$vu;
       if ($vf) $vid=$vf;
       elseif ($f('video_url')!=='') { if (video_info($f('video_url'))) $vid=$f('video_url'); else $errs[]='Video link not recognised: use a YouTube or Vimeo link, or upload a file.'; }
       if ($errs) $_SESSION['flash']=implode(' ',$errs);
@@ -135,7 +135,7 @@ foreach($MEMBERS as $m): ?>
 <form method="post" enctype="multipart/form-data" class="edit"><?= $T ?><input type="hidden" name="act" value="mem_add"><?= mfields() ?><button class="btn">Add member</button></form></details>
 
 <h2 id="performances" style="margin-top:2em">Manage past performances</h2>
-<p class="hint">These appear on the About page, newest added first. Add a photo and write the description yourself. You can also add a video (a YouTube or Vimeo link, or an uploaded MP4/WEBM up to <?= number_format(VIDEO_MAX_MB) ?> MB) so visitors can watch it on the About page. Photos save to assets/gallery/ and videos to assets/videos/.</p>
+<p class="hint">These appear on the About page, newest added first. Add a photo and write the description yourself. You can also add a video (a YouTube or Vimeo link, or an uploaded MP4/MOV/WEBM up to <?= number_format(VIDEO_MAX_MB) ?> MB) so visitors can watch it on the About page. Photos save to assets/gallery/ and videos to assets/videos/.</p>
 <?php
 function pfields($p=[]){ $v=fn($k)=>e($p[$k]??'');
   return '<label>Title<input name="title" required placeholder="e.g. Wedding reception" value="'.$v('title').'"></label>'
@@ -145,7 +145,7 @@ function pfields($p=[]){ $v=fn($k)=>e($p[$k]??'');
   .'<label>Photo (JPG, PNG or WEBP, up to 5 MB)<input type="file" name="photo" accept="image/*"></label>'
   .'<input type="hidden" name="video" value="'.$v('video').'">'
   .'<div class="row"><label>Video link (YouTube or Vimeo)<input name="video_url" placeholder="https://www.youtube.com/watch?v=..." value="'.e(preg_match('~^https?://~i',(string)($p['video']??''))?$p['video']:'').'"></label>'
-  .'<label>Or upload a video (MP4 or WEBM, up to '.number_format(VIDEO_MAX_MB).' MB)<input type="file" name="video_file" accept="video/mp4,video/webm"></label></div>'
+  .'<label>Or upload a video (MP4, MOV or WEBM, up to '.number_format(VIDEO_MAX_MB).' MB)<input type="file" name="video_file" accept="video/mp4,video/quicktime,video/webm,.mov"></label></div>'
   .'<input type="hidden" name="video_uploaded" value=""><div class="vprog" hidden><progress max="100" value="0"></progress> <span></span></div>'
   .(!empty($p['video'])?'<label class="inl"><input type="checkbox" name="video_remove" value="1">Remove current video'.(preg_match('~^https?://~i',$p['video'])?'':' ('.e($p['video']).')').'</label>':'');
 }
@@ -171,7 +171,7 @@ document.querySelectorAll('form').forEach(f=>{
     const file=inp.files[0]; if(!file || f.dataset.done) return;
     ev.preventDefault();
     const ext=(file.name.split('.').pop()||'').toLowerCase();
-    if(!['mp4','webm'].includes(ext)) return alert('Use an MP4 or WEBM video.');
+    if(!['mp4','webm','mov'].includes(ext)) return alert('Use an MP4, MOV or WEBM video.');
     if(file.size>MAX) return alert('That video is '+Math.round(file.size/1048576)+' MB. The limit is <?= number_format(VIDEO_MAX_MB) ?> MB.');
     const box=f.querySelector('.vprog'),bar=box.querySelector('progress'),txt=box.querySelector('span'),btns=f.querySelectorAll('button');
     box.hidden=false; btns.forEach(b=>b.disabled=true);
