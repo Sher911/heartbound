@@ -22,6 +22,7 @@ $MEMBERS = [
   ['name'=>'Syazu', 'role'=>'Dancer', 'photo'=>'syazu.jpg', 'bio'=>'Write a short description of this member here.'],
   ['name'=>'Yana', 'role'=>'Dancer', 'photo'=>'yana.jpg', 'bio'=>'Write a short description of this member here.'],
 ];
+// NOTE: past performances are now managed in the admin dashboard (this list is no longer used).
 $PERFORMANCES = [
   ['title'=>'Wedding reception',    'date'=>'March 2026',   'venue'=>'Venue name', 'photo'=>'p1.jpg', 'text'=>'Describe this performance.'],
   ['title'=>'School anniversary',   'date'=>'May 2026',     'venue'=>'Venue name', 'photo'=>'p2.jpg', 'text'=>'Describe this performance.'],
