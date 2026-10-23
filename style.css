@@ -96,3 +96,13 @@ button.danger,.danger{cursor:pointer;border-radius:8px;border:1px solid var(--pi
 .hint{color:var(--mut);font-size:.85rem}
 .tag.pending{background:var(--card)}
 input[type=file]{padding:8px}
+
+/* performance videos */
+.vbtn{margin-top:1em;padding:9px 22px;font-size:.9rem}
+.vdlg{max-width:860px}
+.vbody{padding:28px 22px 22px}.vbody h2{margin:0 0 14px;padding-right:40px}
+#vstage iframe,#vstage video{display:block;width:100%;aspect-ratio:16/9;border:0;border-radius:14px;background:#000}
+
+/* video upload progress (admin) */
+.vprog{display:flex;align-items:center;gap:10px;margin:8px 0;font-size:.9em}
+.vprog progress{flex:1;height:12px;accent-color:currentColor}

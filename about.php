@@ -8,11 +8,38 @@
   </div>
  
   <h2>Our past performances</h2>
+  <?php if (!$PERFORMANCES): ?>
+    <p class="lead">Our performance gallery is coming soon.</p>
+  <?php else: ?>
   <div class="grid two">
-  <?php foreach ($PERFORMANCES as $p): ?>
+  <?php foreach ($PERFORMANCES as $p): $meta=trim(implode(', ', array_filter([$p['venue'],$p['date']]))); $vi=video_info($p['video']??''); ?>
     <article class="card wide"><div class="pic land"><span>&#9829;</span><?= img('gallery',$p['photo'],$p['title']) ?></div>
-    <h3><?= e($p['title']) ?></h3><em><?= e($p['venue']) ?>, <?= e($p['date']) ?></em><p><?= e($p['text']) ?></p></article>
+    <h3><?= e($p['title']) ?></h3><?php if($meta): ?><em><?= e($meta) ?></em><?php endif; ?><?php if($p['text']): ?><p><?= nl2br(e($p['text'])) ?></p><?php endif; ?>
+    <?php if($vi): ?><button type="button" class="btn vbtn" data-kind="<?= e($vi['kind']) ?>" data-src="<?= e($vi['src']) ?>" data-title="<?= e($p['title']) ?>">&#9654; Watch video</button><?php endif; ?></article>
   <?php endforeach; ?>
   </div>
+  <?php endif; ?>
 </section>
+<dialog id="vdlg" class="mdlg vdlg" aria-labelledby="vtitle">
+  <button type="button" class="mclose" aria-label="Close">&times;</button>
+  <div class="vbody"><h2 id="vtitle"></h2><div id="vstage"></div></div>
+</dialog>
+<script>
+(()=>{
+const d=document.getElementById('vdlg'),st=document.getElementById('vstage'),t=document.getElementById('vtitle');
+document.querySelectorAll('.vbtn').forEach(b=>b.onclick=()=>{
+  st.innerHTML='';let el;
+  if(b.dataset.kind==='iframe'){
+    el=document.createElement('iframe');el.src=b.dataset.src;el.title=b.dataset.title;
+    el.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';el.allowFullscreen=true;
+  }else{
+    el=document.createElement('video');el.controls=true;el.autoplay=true;el.playsInline=true;el.src=b.dataset.src;
+  }
+  st.append(el);t.textContent=b.dataset.title;d.showModal();
+});
+d.addEventListener('close',()=>{st.innerHTML='';});
+d.querySelector('.mclose').onclick=()=>d.close();
+d.onclick=e=>{if(e.target===d)d.close();};
+})();
+</script>
 <?php require 'footer.php'; ?>

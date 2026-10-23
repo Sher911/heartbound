@@ -10,13 +10,17 @@ if (isset($_POST['pw'])) {
 
 // ---- Admin actions ----
 $flash='';
-function save_photo($name){
-  if (empty($_FILES['photo']['tmp_name']) || $_FILES['photo']['error']!==UPLOAD_ERR_OK) return null;
-  $ext=strtolower(pathinfo($_FILES['photo']['name'],PATHINFO_EXTENSION));
-  if (!in_array($ext,['jpg','jpeg','png','webp'],true) || $_FILES['photo']['size']>5*1024*1024) return false;
-  $dir=__DIR__.'/assets/members'; if(!is_dir($dir)) @mkdir($dir,0755,true);
-  $fn=(preg_replace('/[^a-z0-9]+/','-',strtolower($name))?:'member').'-'.time().'.'.$ext;
-  return move_uploaded_file($_FILES['photo']['tmp_name'],$dir.'/'.$fn) ? $fn : false;
+function save_file($key,$name,$sub,$exts,$max,$fallback){
+  if (empty($_FILES[$key]) || $_FILES[$key]['error']===UPLOAD_ERR_NO_FILE) return null;
+  if ($_FILES[$key]['error']!==UPLOAD_ERR_OK) return false;
+  $ext=strtolower(pathinfo($_FILES[$key]['name'],PATHINFO_EXTENSION));
+  if (!in_array($ext,$exts,true) || $_FILES[$key]['size']>$max) return false;
+  $dir=__DIR__.'/assets/'.$sub; if(!is_dir($dir)) @mkdir($dir,0755,true);
+  $fn=(preg_replace('/[^a-z0-9]+/','-',strtolower($name))?:$fallback).'-'.time().'.'.$ext;
+  return move_uploaded_file($_FILES[$key]['tmp_name'],$dir.'/'.$fn) ? $fn : false;
+}
+function save_photo($name,$sub='members',$fallback='member'){
+  return save_file('photo',$name,$sub,['jpg','jpeg','png','webp'],5*1024*1024,$fallback);
 }
 if (is_admin() && isset($_POST['act'])) {
   if (!csrf_ok()) { http_response_code(400); exit('Invalid request. Go back and refresh the page.'); }
@@ -43,6 +47,34 @@ if (is_admin() && isset($_POST['act'])) {
       }
     }
   }
+  if ($a==='perf_save' || $a==='perf_add') {
+    $title=trim($_POST['title']??''); $go='admin.php#performances';
+    if ($title==='') { $_SESSION['flash']='Performance title cannot be empty.'; }
+    else {
+      $f=fn($k)=>trim($_POST[$k]??''); $errs=[];
+      $up=save_photo($title,'gallery','performance');
+      if ($up===false) $errs[]='Photo not saved: use a JPG, PNG or WEBP under 5 MB (your server may also limit upload size).';
+      // Video: a new upload wins, then a pasted link, otherwise keep what was there (or remove it)
+      $vid=$f('video');
+      if (!empty($_POST['video_remove'])) $vid='';
+      $vf=save_file('video_file',$title,'videos',['mp4','webm'],VIDEO_MAX_BYTES,'video');
+      if ($vf===false) $errs[]='Video file not saved: use MP4 or WEBM under '.VIDEO_MAX_MB.' MB.';
+      // Big videos are uploaded in pieces by upload_chunk.php first; the form just sends the saved file name
+      $vu=basename((string)($_POST['video_uploaded']??''));
+      if (!$vf && $vu!=='' && preg_match('/^[a-z0-9-]+\.(mp4|webm)$/',$vu) && is_file(__DIR__.'/assets/videos/'.$vu)) $vf=$vu;
+      if ($vf) $vid=$vf;
+      elseif ($f('video_url')!=='') { if (video_info($f('video_url'))) $vid=$f('video_url'); else $errs[]='Video link not recognised: use a YouTube or Vimeo link, or upload a file.'; }
+      if ($errs) $_SESSION['flash']=implode(' ',$errs);
+      if ($a==='perf_save') {
+        $db->prepare("UPDATE performances SET title=?,perf_date=?,venue=?,photo=?,text=?,video=? WHERE id=?")
+           ->execute([$title,$f('perf_date'),$f('venue'),$up?:$f('photo'),$f('text'),$vid,(int)$_POST['id']]);
+      } else {
+        $db->prepare("INSERT INTO performances(title,perf_date,venue,photo,text,video) VALUES(?,?,?,?,?,?)")
+           ->execute([$title,$f('perf_date'),$f('venue'),$up?:'',$f('text'),$vid]);
+      }
+    }
+  }
+  if ($a==='perf_del') { $db->prepare("DELETE FROM performances WHERE id=?")->execute([(int)$_POST['id']]); $go='admin.php#performances'; }
   if ($a==='mem_del') { $db->prepare("DELETE FROM members WHERE id=?")->execute([(int)$_POST['id']]); $go='admin.php#members'; }
   header('Location: '.$go); exit;
 }
@@ -61,7 +93,7 @@ $blk=$db->query("SELECT * FROM blocked ORDER BY date")->fetchAll(PDO::FETCH_ASSO
 $T='<input type="hidden" name="csrf" value="'.e(csrf()).'">';
 ?>
 <section class="wrap"><h1 class="h1s">Booking requests</h1>
-<div class="admtabs"><a href="#bookings">Bookings</a><a href="#dates">Block dates</a><a href="#members">Members</a><a href="admin.php?out=1">Log out</a></div>
+<div class="admtabs"><a href="#bookings">Bookings</a><a href="#dates">Block dates</a><a href="#members">Members</a><a href="#performances">Past performances</a><a href="admin.php?out=1">Log out</a></div>
 <?php if($flash) echo '<div class="msg bad">'.e($flash).'</div>'; ?>
 <?php if($SITE['admin_password']==='change-this-password') echo '<div class="msg bad">Please change the default admin password in config.php.</div>'; ?>
 
@@ -101,4 +133,73 @@ foreach($MEMBERS as $m): ?>
 
 <details class="mcard"><summary><strong>+ Add a new member</strong></summary>
 <form method="post" enctype="multipart/form-data" class="edit"><?= $T ?><input type="hidden" name="act" value="mem_add"><?= mfields() ?><button class="btn">Add member</button></form></details>
-</section><?php require 'footer.php'; ?>
+
+<h2 id="performances" style="margin-top:2em">Manage past performances</h2>
+<p class="hint">These appear on the About page, newest added first. Add a photo and write the description yourself. You can also add a video (a YouTube or Vimeo link, or an uploaded MP4/WEBM up to <?= number_format(VIDEO_MAX_MB) ?> MB) so visitors can watch it on the About page. Photos save to assets/gallery/ and videos to assets/videos/.</p>
+<?php
+function pfields($p=[]){ $v=fn($k)=>e($p[$k]??'');
+  return '<label>Title<input name="title" required placeholder="e.g. Wedding reception" value="'.$v('title').'"></label>'
+  .'<div class="row"><label>Date<input name="perf_date" placeholder="e.g. March 2026" value="'.e($p['date']??'').'"></label><label>Venue<input name="venue" placeholder="Where it was held" value="'.$v('venue').'"></label></div>'
+  .'<label>Description<textarea name="text" rows="4" placeholder="Tell people about this performance...">'.$v('text').'</textarea></label>'
+  .'<input type="hidden" name="photo" value="'.$v('photo').'">'
+  .'<label>Photo (JPG, PNG or WEBP, up to 5 MB)<input type="file" name="photo" accept="image/*"></label>'
+  .'<input type="hidden" name="video" value="'.$v('video').'">'
+  .'<div class="row"><label>Video link (YouTube or Vimeo)<input name="video_url" placeholder="https://www.youtube.com/watch?v=..." value="'.e(preg_match('~^https?://~i',(string)($p['video']??''))?$p['video']:'').'"></label>'
+  .'<label>Or upload a video (MP4 or WEBM, up to '.number_format(VIDEO_MAX_MB).' MB)<input type="file" name="video_file" accept="video/mp4,video/webm"></label></div>'
+  .'<input type="hidden" name="video_uploaded" value=""><div class="vprog" hidden><progress max="100" value="0"></progress> <span></span></div>'
+  .(!empty($p['video'])?'<label class="inl"><input type="checkbox" name="video_remove" value="1">Remove current video'.(preg_match('~^https?://~i',$p['video'])?'':' ('.e($p['video']).')').'</label>':'');
+}
+foreach($PERFORMANCES as $p): ?>
+<details class="mcard"><summary><div class="mrow"><div class="who"><?= img('gallery',$p['photo'],$p['title'],'thumb') ?><div><strong><?= e($p['title']) ?></strong><br><small class="hint"><?= e(trim($p['venue'].' '.($p['date']?'· '.$p['date']:''))) ?></small></div></div><span class="tag">Edit</span></div></summary>
+<form method="post" enctype="multipart/form-data" class="edit"><?= $T ?><input type="hidden" name="act" value="perf_save"><input type="hidden" name="id" value="<?= (int)$p['id'] ?>">
+<?= pfields($p) ?><?php if($p['photo']): ?><p class="hint">Current photo: <?= e($p['photo']) ?>. Choose a file above only if you want to replace it.</p><?php endif; ?><button class="btn">Save changes</button></form>
+<form method="post" onsubmit="return confirm('Delete this performance permanently?')" style="margin-top:10px"><?= $T ?><input type="hidden" name="act" value="perf_del"><input type="hidden" name="id" value="<?= (int)$p['id'] ?>"><button class="danger">Delete performance</button></form>
+</details>
+<?php endforeach; if(!$PERFORMANCES) echo '<p>No performances added yet.</p>'; ?>
+
+<details class="mcard"><summary><strong>+ Add a past performance</strong></summary>
+<form method="post" enctype="multipart/form-data" class="edit"><?= $T ?><input type="hidden" name="act" value="perf_add"><?= pfields() ?><button class="btn">Add performance</button></form></details>
+</section>
+<script>
+// Uploads big videos in 4 MB pieces (with a progress bar) before saving the performance,
+// so files up to <?= VIDEO_MAX_MB ?> MB work without changing the server's PHP upload limits.
+(()=>{
+const MAX=<?= VIDEO_MAX_BYTES ?>, CHUNK=4*1024*1024, CSRF=<?= json_encode(csrf()) ?>;
+document.querySelectorAll('form').forEach(f=>{
+  const inp=f.querySelector('input[name="video_file"]'); if(!inp) return;
+  f.addEventListener('submit',async ev=>{
+    const file=inp.files[0]; if(!file || f.dataset.done) return;
+    ev.preventDefault();
+    const ext=(file.name.split('.').pop()||'').toLowerCase();
+    if(!['mp4','webm'].includes(ext)) return alert('Use an MP4 or WEBM video.');
+    if(file.size>MAX) return alert('That video is '+Math.round(file.size/1048576)+' MB. The limit is <?= number_format(VIDEO_MAX_MB) ?> MB.');
+    const box=f.querySelector('.vprog'),bar=box.querySelector('progress'),txt=box.querySelector('span'),btns=f.querySelectorAll('button');
+    box.hidden=false; btns.forEach(b=>b.disabled=true);
+    const token=[...crypto.getRandomValues(new Uint8Array(16))].map(b=>b.toString(16).padStart(2,'0')).join('');
+    const total=Math.max(1,Math.ceil(file.size/CHUNK)), title=f.querySelector('[name="title"]').value||'video';
+    const stop=msg=>{alert(msg);box.hidden=true;btns.forEach(b=>b.disabled=false);};
+    window.onbeforeunload=()=>'Video still uploading';
+    try{
+      let res;
+      for(let i=0;i<total;i++){
+        const q=new URLSearchParams({token,idx:i,total,size:file.size,ext,name:title});
+        for(let tries=0;;tries++){
+          try{
+            const r=await fetch('upload_chunk.php?'+q,{method:'POST',headers:{'X-CSRF':CSRF,'Content-Type':'application/octet-stream'},body:file.slice(i*CHUNK,(i+1)*CHUNK),credentials:'same-origin'});
+            res=await r.json(); if(!r.ok) throw new Error(res.error||'Upload failed');
+            break;
+          }catch(e){ if(tries>=3 || /MB|MP4|admin|Refresh|Bad|lost|incomplete/.test(e.message)) throw e; await new Promise(z=>setTimeout(z,1500)); }
+        }
+        const pct=Math.round((i+1)/total*100); bar.value=pct;
+        txt.textContent='Uploading video… '+pct+'% ('+Math.round(Math.min(file.size,(i+1)*CHUNK)/1048576)+' / '+Math.round(file.size/1048576)+' MB)';
+      }
+      window.onbeforeunload=null;
+      f.querySelector('[name="video_uploaded"]').value=res.file;
+      inp.value=''; txt.textContent='Video uploaded. Saving…';
+      f.dataset.done=1; f.submit();
+    }catch(e){ window.onbeforeunload=null; stop('Video upload failed: '+e.message); }
+  });
+});
+})();
+</script>
+<?php require 'footer.php'; ?>
